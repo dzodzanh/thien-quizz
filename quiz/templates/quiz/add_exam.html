@@ -1,0 +1,179 @@
+{% extends 'quiz/base.html' %}
+
+{% block title %}Tạo Đề Thi{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+    <div class="mb-6 flex items-center gap-3">
+        <a href="{% url 'quiz:dashboard' %}" class="text-gray-500 hover:text-gray-800 transition"><i
+                class="fas fa-arrow-left text-xl"></i></a>
+        <h1 class="text-3xl font-extrabold text-gray-900 tracking-tight">Tạo Đề Thi Mới</h1>
+    </div>
+
+    <form method="POST" id="examForm" class="space-y-6">
+        {% csrf_token %}
+        <input type="hidden" name="question_count" id="question_count" value="0">
+
+        <!-- Exam Info Card -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 md:p-8">
+            <h2 class="text-xl font-bold text-gray-800 mb-4 border-b pb-2 flex items-center gap-2">
+                <i class="fas fa-info-circle text-blue-500"></i> Thông tin chung
+            </h2>
+            <div class="space-y-4">
+                <div>
+                    <label for="title" class="block text-sm font-semibold text-gray-700 mb-1">Tên đề thi <span
+                            class="text-red-500">*</span></label>
+                    <input type="text" id="title" name="title" required
+                        placeholder="Nhập tên đề thi (VD: Kiểm tra Toán 15 phút)"
+                        class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition shadow-sm text-gray-800 font-medium">
+                </div>
+                <div>
+                    <label for="description" class="block text-sm font-semibold text-gray-700 mb-1">Mô tả (Không bắt
+                        buộc)</label>
+                    <textarea id="description" name="description" rows="3" placeholder="Ghi chú thêm về đề thi này..."
+                        class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition shadow-sm text-gray-800"></textarea>
+                </div>
+            </div>
+        </div>
+
+        <!-- Questions Container -->
+        <div id="questionsContainer" class="space-y-6">
+            <!-- Questions will be dynamically added here -->
+        </div>
+
+        <!-- Add Question Button -->
+        <div class="flex justify-center py-4">
+            <button type="button" id="addQuestionBtn"
+                class="bg-gray-100 hover:bg-gray-200 text-gray-800 font-semibold py-3 px-6 rounded-lg border border-gray-300 border-dashed w-full shadow-sm transition duration-200 flex items-center justify-center gap-2">
+                <i class="fas fa-plus"></i> Thêm Câu Hỏi
+            </button>
+        </div>
+
+        <!-- Submit Bar -->
+        <div
+            class="bg-gray-50 border border-gray-200 rounded-xl p-6 flex items-center justify-between sticky bottom-4 shadow-lg z-10 glass-panel">
+            <div class="text-sm font-medium text-gray-600">
+                Tổng số câu hỏi: <span id="totalQuestions" class="text-blue-600 font-bold text-lg">0</span>
+            </div>
+            <button type="submit"
+                class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg shadow-md transition duration-200 transform hover:-translate-y-0.5 flex items-center gap-2">
+                <i class="fas fa-save"></i> Hoàn Tất & Lưu Đề
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const container = document.getElementById('questionsContainer');
+        const countInput = document.getElementById('question_count');
+        const addBtn = document.getElementById('addQuestionBtn');
+        const form = document.getElementById('examForm');
+        const totalSpan = document.getElementById('totalQuestions');
+        let qCount = 0;
+
+        function updateCount() {
+            countInput.value = qCount;
+            totalSpan.textContent = qCount;
+        }
+
+        function addQuestion() {
+            qCount++;
+
+            const qDiv = document.createElement('div');
+            qDiv.className = 'bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden question-card transition-all relative';
+            qDiv.id = `q_card_${qCount}`;
+
+            // Generate HTML for a question and its 4 choices
+            let html = `
+                <div class="bg-blue-50 border-b border-gray-100 px-6 py-3 flex justify-between items-center">
+                    <h3 class="font-bold text-blue-800 text-lg flex items-center gap-2"><i class="fas fa-question-circle"></i> Câu ${qCount}</h3>
+                    <button type="button" class="text-red-400 hover:text-red-600 transition" onclick="this.closest('.question-card').remove(); updateCounters();" title="Xóa câu hỏi">
+                        <i class="fas fa-times-circle text-xl"></i>
+                    </button>
+                </div>
+                <div class="p-6 md:p-8 space-y-6">
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">Nội dung câu hỏi <span class="text-red-500">*</span></label>
+                        <textarea name="question_${qCount}_text" required rows="2" placeholder="Ví dụ: Thủ đô của Việt Nam là gì?"
+                            class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition shadow-sm text-gray-800 text-base"></textarea>
+                    </div>
+                    
+                    <div class="bg-gray-50 rounded-lg p-5 border border-gray-200">
+                        <p class="text-sm font-semibold text-gray-700 mb-4 flex justify-between items-center">
+                            <span>Các đáp án</span>
+                            <span class="text-blue-600 text-xs bg-blue-100 px-2 py-1 rounded">Chọn đáp án đúng</span>
+                        </p>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            `;
+
+            const letters = ['A', 'B', 'C', 'D'];
+            for (let i = 1; i <= 4; i++) {
+                html += `
+                    <div class="flex items-center gap-3 bg-white p-3 rounded-md border border-gray-300 hover:border-blue-400 transition-colors focus-within:ring-1 focus-within:ring-blue-500 focus-within:border-blue-500">
+                        <input type="radio" name="question_${qCount}_correct" value="${i}" ${i === 1 ? 'checked' : ''} required class="w-5 h-5 text-blue-600 focus:ring-blue-500 border-gray-300">
+                        <div class="flex-grow flex items-center gap-2">
+                            <span class="font-bold text-gray-500 w-6 text-center">${letters[i - 1]}.</span>
+                            <input type="text" name="question_${qCount}_choice_${i}" required placeholder="Nhập đáp án..."
+                                class="w-full bg-transparent border-0 border-b border-dashed border-gray-300 focus:border-blue-500 focus:ring-0 px-1 py-1 text-gray-800 placeholder-gray-400 font-medium">
+                        </div>
+                    </div>
+                `;
+            }
+
+            html += `
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            qDiv.innerHTML = html;
+            container.appendChild(qDiv);
+
+            // Add a small fade-in animation
+            qDiv.animate([{ opacity: 0, transform: 'translateY(10px)' }, { opacity: 1, transform: 'translateY(0)' }], { duration: 300, fill: 'forwards' });
+
+            updateCount();
+
+            // Scroll to newly added question
+            qDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+
+        addBtn.addEventListener('click', addQuestion);
+
+        // Make updateCounters global so inline onclick can access it
+        window.updateCounters = function () {
+            const cards = document.querySelectorAll('.question-card');
+            let updatedCount = 0;
+
+            // Retain original IDs and Names to avoid complex re-indexing logic. 
+            // Just update visual numbering.
+            cards.forEach((card, index) => {
+                updatedCount++;
+                const header = card.querySelector('h3');
+                header.innerHTML = `<i class="fas fa-question-circle"></i> Câu ${index + 1}`;
+            });
+
+            // Note: Since we don't re-index inputs here, `question_count` must reflect the MAX ID used, 
+            // not the current total count if deletions happen.
+            // Actually, best to just not allow decrementing qCount for ID generation, just visually update.
+            totalSpan.textContent = updatedCount;
+        }
+
+        // Add 1 initial question
+        addQuestion();
+
+        // Form Validation before submit
+        form.addEventListener('submit', function (e) {
+            const cards = document.querySelectorAll('.question-card');
+            if (cards.length === 0) {
+                e.preventDefault();
+                alert('Vui lòng thêm ít nhất 1 câu hỏi cho đề thi!');
+                addQuestion();
+            }
+        });
+    });
+</script>
+{% endblock %}
